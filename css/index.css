@@ -209,6 +209,9 @@ body {
 .timeline-block p {
 	font-size: 0.8rem;
 	margin: 5px 0;
+	font-weight: bold;
+	font-style: italic;
+	color: firebrick;
 }
 .timeline-block time {
 	font-size: 0.8rem;
@@ -263,6 +266,10 @@ body {
     margin: 2px;
     font-size: 0.6rem;
     border-radius: 10%;
+	transition: all 0.3s;
+}
+.timeline-block .technical-list .technical-item:hover {
+	background: var(--color-tiffany);
 }
 /* Programming skills section */
 .pg-list, .tool-list, .favor-list {
