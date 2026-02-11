@@ -1,4 +1,37 @@
 * {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+font-family: Arial, Helvetica, sans-serif;
+}
+
+
+body {
+background: linear-gradient(135deg, #eef2ff, #f8fafc);
+color: #1f2937;
+}
+
+
+.container {
+max-width: 1100px;
+margin: 0 auto;
+padding: 1.5rem;
+}
+
+
+.nav {
+background: linear-gradient(90deg, #1e3a8a, #2563eb);
+color: white;
+}
+
+
+.nav .container {
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+
 .nav a {
 color: white;
 margin-left: 1.5rem;
@@ -42,8 +75,9 @@ margin-right: 1rem;
 
 
 .btn.primary {
-background: #111827;
+background: linear-gradient(90deg, #2563eb, #38bdf8);
 color: white;
+border: none;
 }
 
 
@@ -73,36 +107,3 @@ background: white;
 padding: 1.5rem;
 margin-bottom: 1rem;
 border-radius: 10px;
-box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
-
-
-.skills {
-margin-top: 1rem;
-list-style: square;
-padding-left: 1.5rem;
-}
-
-
-.blog-card {
-background: white;
-padding: 1.5rem;
-margin-bottom: 1.5rem;
-border-radius: 10px;
-box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
-
-
-.blog-card a {
-text-decoration: none;
-color: #111827;
-}
-
-
-footer {
-text-align: center;
-padding: 2rem 0;
-margin-top: 3rem;
-background: #111827;
-color: white;
-}
