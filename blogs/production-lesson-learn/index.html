@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Production Lessons – What Broke and Why</title>
+    <meta name="description"
+        content="A collection of real production incidents and system design lessons learned from scaling backend systems.">
+
+    <meta property="og:title" content="Production Lessons – What Broke and Why">
+    <meta property="og:description" content="Real production incidents. Real system design lessons.">
+    <meta property="og:type" content="website">
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PT2851LYJ0"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-PT2851LYJ0');
+    </script>
+
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+
+        <div class="series-hero">
+            <h1>Production Lessons – What Broke and Why</h1>
+            <p>
+                Real production incidents. Real architectural mistakes.
+                Real system design lessons from scaling backend systems.
+            </p>
+        </div>
+
+        <div class="article-grid">
+
+            <div class="article-card">
+                <a href="./redis-is-fast-util-you-design-wrong.html">
+                    <div class="badge">Episode #1</div>
+                    <div class="article-title">
+                        Redis Is Fast — Until You Design It Wrong
+                    </div>
+                    <div class="article-desc">
+                        How 30,000 users and a single hot key exposed a flawed Redis data modeling decision during peak
+                        traffic.
+                    </div>
+                </a>
+            </div>
+
+            <div class="article-card coming-soon">
+                <div class="badge">Episode #2</div>
+                <div class="article-title">
+                    The Hot Key Problem No One Monitored
+                </div>
+                <div class="article-desc">
+                    Coming soon.
+                </div>
+            </div>
+
+        </div>
+        <footer>
+            © 2026 – Backend Engineering Notes
+        </footer>
+    </div>
+
+
+</body>
+
+</html>

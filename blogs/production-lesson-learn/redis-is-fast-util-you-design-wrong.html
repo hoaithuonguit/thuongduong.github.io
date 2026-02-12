@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redis Is Fast — Until You Design It Wrong</title>
+    <meta name="description"
+        content="A production incident where 30,000 users and a single Redis hot key caused memory spikes and latency issues. A deep dive into data modeling, O(n) lookups, and how to design Redis correctly for scale." />
+    <link rel="stylesheet" href="styles.css" />
+    <meta property="og:title" content="Redis Is Fast — Until You Design It Wrong" />
+    <meta property="og:description"
+        content="A production breakdown of how a single Redis hot key and O(n) lookup caused memory spikes at peak traffic." />
+    <meta property="og:type" content="article" />
+    <script defer src="script.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PT2851LYJ0"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-PT2851LYJ0');
+    </script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+        <h1>Production Lessons – What Broke and Why</h1>
+        <h2>Episode #1 – Redis Is Fast — Until You Design It Wrong</h2>
+
+        <hr />
+
+        <h3>Context</h3>
+
+        <p>
+            We had a feature that allowed administrators to target a specific group of users for a time-based campaign.
+            The selected user IDs were configured from an internal admin portal.
+        </p>
+
+        <p>
+            The requirement was simple:
+        </p>
+
+        <ul>
+            <li>Admin selects users</li>
+            <li>System stores the selected user IDs in Redis</li>
+            <li>When a user logs in, the system checks whether they belong to that campaign group</li>
+        </ul>
+
+        <p>
+            In development, everything worked perfectly.
+        </p>
+
+        <hr />
+
+        <h3>Original Design</h3>
+
+        <p>
+            All targeted user IDs were stored inside a single Redis key as a serialized JSON array.
+        </p>
+
+        <pre>
+        Key: campaign:2026-02-12
+        Value: [1, 5, 20, 500, 999, ...]
+        </pre>
+
+        <p>
+            On every login request:
+        </p>
+
+        <ol>
+            <li>GET the key from Redis</li>
+            <li>Deserialize the JSON array</li>
+            <li>Perform a linear search to check if the userId exists</li>
+        </ol>
+
+        <p>
+            In staging, the list usually contained 20–100 users.
+            Latency was negligible.
+            No one questioned the design.
+        </p>
+
+        <hr />
+
+        <h3>The Incident</h3>
+
+        <p>
+            One day, an administrator added more than <strong>30,000 user IDs</strong> into the campaign group.
+        </p>
+
+        <p>
+            Unfortunately, this happened during peak traffic hours.
+        </p>
+
+        <p>
+            Within minutes:
+        </p>
+
+        <ul>
+            <li>Redis memory usage spiked</li>
+            <li>CPU usage increased significantly</li>
+            <li>Application response time degraded</li>
+            <li>Login requests started timing out</li>
+        </ul>
+
+        <p>
+            At first glance, it looked like a memory leak.
+            It wasn’t.
+        </p>
+
+        <hr />
+
+        <h3>Root Cause Analysis</h3>
+
+        <h4>1. O(n) Lookup Per Login</h4>
+
+        <pre>
+        GET campaign:2026-02-12
+        Deserialize 30,000 IDs
+        Linear search
+        </pre>
+
+        <p>
+            This is an O(n) operation executed on every login.
+        </p>
+
+        <p>
+            Under high concurrency, we were repeatedly:
+        </p>
+
+        <ul>
+            <li>Transferring large payloads over the network</li>
+            <li>Allocating large objects in memory</li>
+            <li>Triggering heavy garbage collection cycles</li>
+        </ul>
+
+        <p>
+            The cost wasn’t obvious at small scale.
+            At peak traffic, it became catastrophic.
+        </p>
+
+        <hr />
+
+        <h4>2. Single Hot Key</h4>
+
+        <p>
+            All users were hitting the exact same Redis key simultaneously.
+        </p>
+
+        <p>
+            This created:
+        </p>
+
+        <ul>
+            <li>Hot key contention</li>
+            <li>High network I/O</li>
+            <li>Repeated full-value deserialization</li>
+        </ul>
+
+        <p>
+            We unintentionally turned Redis into a bottleneck.
+        </p>
+
+        <hr />
+
+        <h4>3. Misaligned Data Modeling</h4>
+
+        <p>
+            Redis is a data structure server.
+            We ignored that.
+        </p>
+
+        <p>
+            We treated Redis like:
+        </p>
+
+        <blockquote>
+            Give me everything, I will filter locally.
+        </blockquote>
+
+        <p>
+            Instead of:
+        </p>
+
+        <blockquote>
+            Ask Redis the exact question you need answered.
+        </blockquote>
+
+        <hr />
+
+        <h3>Why It Looked Like a Memory Leak</h3>
+
+        <p>
+            It was not a true leak.
+        </p>
+
+        <p>
+            It was the combination of:
+        </p>
+
+        <ul>
+            <li>Large repeated allocations</li>
+            <li>High-frequency deserialization</li>
+            <li>Concurrent access to a large payload</li>
+            <li>Increased memory fragmentation</li>
+        </ul>
+
+        <p>
+            Under peak load, this pattern amplified resource consumption dramatically.
+        </p>
+
+        <hr />
+
+        <h3>Refactored Design</h3>
+
+        <h4>Option 1 – Use Redis Set</h4>
+
+        <pre>
+        Key: campaign:2026-02-12
+        Type: SET
+        Members: userId
+        </pre>
+
+        <p>
+            On login:
+        </p>
+
+        <pre>
+        SISMEMBER campaign:2026-02-12 userId
+        </pre>
+
+        <p>
+            Benefits:
+        </p>
+
+        <ul>
+            <li>O(1) lookup</li>
+            <li>No full payload transfer</li>
+            <li>No JSON deserialization</li>
+            <li>No large object allocation</li>
+        </ul>
+
+        <hr />
+
+        <h4>Option 2 – Per User Key with TTL</h4>
+
+        <pre>
+        Key: user:{userId}:campaign
+        Value: 1
+        TTL: 24h
+        </pre>
+
+        <p>
+            On login:
+        </p>
+
+        <pre>
+        EXISTS key
+        </pre>
+
+        <p>
+            This removes the hot key issue entirely.
+        </p>
+
+        <hr />
+
+        <h3>Performance Comparison</h3>
+
+        <table border="1" cellpadding="8">
+            <tr>
+                <th>Design</th>
+                <th>Time Complexity</th>
+                <th>Network Payload</th>
+                <th>Concurrency Risk</th>
+            </tr>
+            <tr>
+                <td>JSON Array</td>
+                <td>O(n)</td>
+                <td>High</td>
+                <td>High</td>
+            </tr>
+            <tr>
+                <td>Redis Set</td>
+                <td>O(1)</td>
+                <td>Minimal</td>
+                <td>Low</td>
+            </tr>
+            <tr>
+                <td>Per-user Key</td>
+                <td>O(1)</td>
+                <td>Minimal</td>
+                <td>Very Low</td>
+            </tr>
+        </table>
+
+        <hr />
+
+        <h3>Senior Engineering Lesson</h3>
+
+        <ul>
+            <li>Always model data based on access pattern</li>
+            <li>Hot keys can silently destroy performance</li>
+            <li>Complexity analysis matters in distributed systems</li>
+            <li>Peak traffic reveals architectural flaws</li>
+        </ul>
+
+        <p>
+            Redis was never the problem.
+        </p>
+
+        <p>
+            The problem was asking the wrong question to the system.
+        </p>
+
+        <p>
+            The difference between:
+        </p>
+
+        <p><strong>"Give me the whole list."</strong></p>
+
+        <p>and</p>
+
+        <p><strong>"Does this member exist?"</strong></p>
+
+        <p>
+            is the difference between surviving peak traffic and crashing in production.
+        </p>
+
+        <hr />
+
+        <h3>Closing Thought</h3>
+
+        <p>
+            Fast systems are not built by faster code.
+            They are built by correct data modeling.
+        </p>
+        <footer>
+            © 2026 — Redis Production Series
+            Engineering for bounded resources.
+        </footer>
+    </div>
+
+
+
+
+    </div>
+</body>
+
+</html>
