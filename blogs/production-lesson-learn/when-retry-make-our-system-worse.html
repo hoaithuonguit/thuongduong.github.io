@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>When Retry Made Our System Worse</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PT2851LYJ0"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-PT2851LYJ0');
+    </script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+        <div class="toc" id="toc">
+            <strong>Table of Contents</strong>
+        </div>
+
+        <h1>When Retry Made Our System Worse</h1>
+
+        <p><strong>We thought retry would make our system more reliable.</strong><br />
+            It made it collapse faster.</p>
+
+        <hr />
+
+        <h2>1. Context</h2>
+
+        <p>We had a system using Memcache to improve read performance.</p>
+
+        <p>To support cache invalidation, we stored all active cache keys in a shared <code>List&lt;string&gt;</code>.
+            Whenever data was updated, we would iterate through that list and clear related cache entries.</p>
+
+        <p>It worked perfectly in testing.</p>
+
+        <p>Single requests. Controlled environment. No visible issues.</p>
+
+        <hr />
+
+        <h2>2. The Assumptions</h2>
+
+        <ul>
+            <li>A <code>List&lt;string&gt;</code> was enough to track cache keys.</li>
+            <li>Cache invalidation was simple.</li>
+            <li>Retry would improve reliability.</li>
+        </ul>
+
+        <p>All three assumptions were wrong.</p>
+
+        <hr />
+
+        <h2>3. What Happened in Production</h2>
+
+        <p>Under real traffic, concurrent requests started updating data at the same time.</p>
+
+        <p>The shared <code>List&lt;string&gt;</code> was <strong>not thread-safe</strong>.</p>
+
+        <ul>
+            <li>Multiple threads modified the list simultaneously.</li>
+            <li>Race conditions occurred.</li>
+            <li>Cache invalidation logic broke.</li>
+        </ul>
+
+        <p>Sometimes the invalidation step threw exceptions.</p>
+
+        <p>The endpoint returned <strong>HTTP 500</strong>.</p>
+
+        <p>And then the retry policy kicked in.</p>
+
+        <hr />
+
+        <h2>4. Where Things Got Worse</h2>
+
+        <p>Here’s the critical part:</p>
+
+        <ul>
+            <li>The database transaction had already succeeded.</li>
+            <li>Data was committed.</li>
+            <li>Only the cache invalidation failed.</li>
+        </ul>
+
+        <p>But because the endpoint returned 500, the client retried.</p>
+
+        <p>Each retry:</p>
+
+        <ul>
+            <li>Re-executed business logic</li>
+            <li>Triggered cache invalidation again</li>
+            <li>Increased contention</li>
+            <li>Made the race condition more frequent</li>
+        </ul>
+
+        <p><strong>Retry didn’t fix the failure.</strong><br />
+            It amplified it.</p>
+
+        <hr />
+
+        <h2>5. Root Causes</h2>
+
+        <h3>a. Shared Mutable State</h3>
+        <p>A non-thread-safe collection was shared across concurrent requests.</p>
+
+        <h3>b. Non-Idempotent Side Effects</h3>
+        <p>Retry re-executed logic that had already partially succeeded.</p>
+
+        <h3>c. Blind Retry Policy</h3>
+        <p>The system retried on 500 errors without understanding whether the operation was safe to retry.</p>
+
+        <hr />
+
+        <h2>6. How I Would Redesign It Today</h2>
+
+        <ul>
+            <li>Use thread-safe collections like <code>ConcurrentDictionary</code> (or eliminate shared state entirely).
+            </li>
+            <li>Separate cache invalidation from the main transaction flow.</li>
+            <li>Make operations idempotent before enabling retry.</li>
+            <li>Retry only transient failures — not business logic failures.</li>
+        </ul>
+
+        <hr />
+
+        <h2>7. Big Lesson</h2>
+
+        <p>Caching is hard.</p>
+        <p>Concurrency makes it harder.</p>
+        <p>Retry makes it dangerous.</p>
+
+        <p><strong>Retry doesn’t improve reliability.</strong><br />
+            It magnifies design flaws.</p>
+
+        <hr />
+
+        <p><em>Frameworks don’t scale systems.</em><br />
+            <em>Engineering decisions do.</em>
+        </p>
+        <footer>
+            © 2026 — Production lessons Series
+            Engineering for bounded resources.
+        </footer>
+
+    </div>
+</body>
+
+</html>
