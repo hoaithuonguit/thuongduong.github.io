@@ -1,0 +1,136 @@
+/* Minimal Senior Engineer Blog */
+
+:root {
+  --bg: #0b0f17;
+  --card: #111827;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #3b82f6;
+  --border: #1f2937;
+}
+.nav {
+  background: linear-gradient(90deg, #1e3a8a, #2563eb);
+  color: white;
+}
+
+
+.nav .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+.nav a {
+  color: white;
+  margin-left: 1.5rem;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+
+.nav a.active,
+.nav a:hover {
+  color: #38bdf8;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system;
+  line-height: 1.75;
+}
+
+.container {
+  max-width: 880px;
+  margin: auto;
+  padding: 2rem;
+}
+
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  margin-top: 3rem;
+  border-top: 1px solid var(--border);
+  padding-top: 2rem;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+pre {
+  background: var(--card);
+  padding: 1.2rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+
+code {
+  color: #93c5fd;
+}
+
+.toc {
+  background: var(--card);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+footer {
+  margin-top: 4rem;
+  border-top: 1px solid var(--border);
+  padding-top: 2rem;
+  color: var(--muted);
+}
+
+.series-meta {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.series-meta a {
+  color: var(--accent);
+}
+
+.post-nav {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  background: var(--card);
+}
+
+.post-nav a {
+  flex: 1;
+  text-decoration: none;
+}
+
+.post-nav a span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.post-nav a strong {
+  display: block;
+  margin-top: 0.3rem;
+}

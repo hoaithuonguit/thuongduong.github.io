@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Retries Create Traffic Multipliers</title>
+    <meta name="description"
+        content="How retry logic amplifies load, increases tail latency, and collapses distributed systems under stress." />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+
+        <h1>Retries Create Traffic Multipliers</h1>
+
+        <p>
+            Retries are designed to improve reliability.
+            Under stress, they do the opposite.
+        </p>
+
+        <p>
+            When a system slows down, retry logic increases load.
+            Increased load slows the system further.
+            This feedback loop collapses capacity.
+        </p>
+
+        <div id="toc" class="toc">
+            <strong>Table of Contents</strong>
+        </div>
+
+        <h2 id="intuition">1. The Intuition</h2>
+
+        <p>
+            A request fails.
+            The client retries.
+        </p>
+
+        <p>
+            If the failure was transient,
+            the retry succeeds.
+        </p>
+
+        <p>
+            But if the failure was caused by overload,
+            the retry increases overload.
+        </p>
+
+        <p>
+            Reliability logic becomes a load amplifier.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" target="_blank">
+                AWS Builders Library – Timeouts, Retries, and Backoff with Jitter
+            </a>
+        </p>
+
+        <h2 id="baseline">2. Baseline Capacity Model</h2>
+
+        <p>
+            Assume:
+        </p>
+
+        <ul>
+            <li>Service capacity = 10,000 RPS</li>
+            <li>Incoming traffic = 8,000 RPS</li>
+            <li>Average latency = 120ms</li>
+        </ul>
+
+        <p>
+            System is stable.
+        </p>
+
+        <p>
+            Utilization = 80%.
+        </p>
+
+        <p>
+            In queueing theory terms (M/M/1 approximation):
+        </p>
+
+        <pre><code>ρ = λ / μ
+ρ = 8000 / 10000 = 0.8</code></pre>
+
+        <p>
+            As utilization approaches 1,
+            latency increases non-linearly.
+        </p>
+
+        <h2 id="multiplier">3. The Retry Multiplier Effect</h2>
+
+        <p>
+            Now assume 5% of requests timeout due to latency spike.
+        </p>
+
+        <pre><code>8,000 × 5% = 400 retries per second</code></pre>
+
+        <p>
+            Effective traffic becomes:
+        </p>
+
+        <pre><code>8,000 + 400 = 8,400 RPS</code></pre>
+
+        <p>
+            Utilization:
+        </p>
+
+        <pre><code>ρ = 8400 / 10000 = 0.84</code></pre>
+
+        <p>
+            Latency increases.
+            More requests exceed timeout.
+        </p>
+
+        <p>
+            Suppose timeout rate increases to 10%.
+        </p>
+
+        <pre><code>8,000 × 10% = 800 retries
+Effective load = 8,800 RPS
+ρ = 0.88</code></pre>
+
+        <p>
+            Positive feedback loop.
+        </p>
+
+        <h2 id="latency">4. Tail Latency Amplification</h2>
+
+        <p>
+            Retries target slow requests.
+            Slow requests are usually P95 or P99.
+        </p>
+
+        <p>
+            That means retries amplify tail latency pressure,
+            not average latency.
+        </p>
+
+        <p>
+            Google SRE notes that tail latency dominates user experience.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://sre.google/sre-book/handling-overload/" target="_blank">
+                Google SRE – Handling Overload
+            </a>
+        </p>
+
+        <h2 id="storm">5. Retry Storm Scenario</h2>
+
+        <p>
+            Now add:
+        </p>
+
+        <ul>
+            <li>3 retry attempts</li>
+            <li>No exponential backoff</li>
+            <li>No jitter</li>
+        </ul>
+
+        <p>
+            Worst-case multiplier:
+        </p>
+
+        <pre><code>Original: 8,000 RPS
+1st retry: 8,000
+2nd retry: 8,000
+3rd retry: 8,000
+
+Total potential = 32,000 RPS</code></pre>
+
+        <p>
+            A system built for 10,000 RPS
+            now receives 32,000.
+        </p>
+
+        <p>
+            Collapse is deterministic.
+        </p>
+
+        <h2 id="math">6. Modeling the Collapse</h2>
+
+        <p>
+            In an M/M/1 queue,
+            average response time:
+        </p>
+
+        <pre><code>W = 1 / (μ - λ)</code></pre>
+
+        <p>
+            If:
+        </p>
+
+        <pre><code>μ = 10000
+λ = 9500
+
+W = 1 / (500) = small</code></pre>
+
+        <p>
+            If λ increases to 9900:
+        </p>
+
+        <pre><code>W = 1 / (100)</code></pre>
+
+        <p>
+            5× worse latency from a 4% load increase.
+        </p>
+
+        <p>
+            Retries accelerate this non-linear region.
+        </p>
+
+        <h2 id="mitigation">7. Production Mitigations</h2>
+
+        <p><strong>1. Exponential Backoff</strong></p>
+
+        <pre><code>delay = base * 2^attempt</code></pre>
+
+        <p><strong>2. Add Jitter</strong></p>
+
+        <pre><code>delay = random(0, base * 2^attempt)</code></pre>
+
+        <p><strong>3. Circuit Breaker</strong></p>
+
+        <p>
+            Stop sending traffic when failure threshold is exceeded.
+        </p>
+
+        <p><strong>4. Retry Budgets</strong></p>
+
+        <p>
+            Limit total retries as percentage of baseline traffic.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://sre.google/sre-book/addressing-cascading-failures/" target="_blank">
+                Google SRE – Cascading Failures
+            </a>
+        </p>
+
+        <h2>8. Conclusion</h2>
+
+        <p>
+            Retries are not free.
+        </p>
+
+        <p>
+            Under normal conditions, they improve reliability.
+            Under stress, they multiply traffic.
+        </p>
+
+        <p>
+            Systems do not collapse because of a single failure.
+            They collapse because feedback loops amplify load.
+        </p>
+
+        <p>
+            Retry logic is a load amplifier.
+            Design it like one.
+        </p>
+
+        <div class="series-meta">
+            <div>
+                <strong>Redis Production Series</strong> (4/8)
+            </div>
+            <div>
+                <a href="./index.html">View full series →</a>
+            </div>
+        </div>
+
+        <div class="post-nav">
+            <a href="./idempotency.html">
+                <span>← Previous</span>
+                <strong>Idempotency Is a Data Problem</strong>
+            </a>
+
+            <a href="./tail-latency-kills-systems.html" style="text-align: right;">
+                <span>Next →</span>
+                <strong>Tail Latency Is What Kills Systems</strong>
+            </a>
+        </div>
+
+        <footer>
+            © 2026 — Redis Production Series
+            Engineering for stability under load.
+        </footer>
+
+    </div>
+</body>
+
+</html>

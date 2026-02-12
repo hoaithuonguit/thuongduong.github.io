@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connection Pools Fail Before Databases Do</title>
+    <meta name="description"
+        content="Why connection pools exhaust before databases fail — and how tail latency amplifies resource starvation." />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <h1>Connection Pools Fail Before Databases Do</h1>
+
+        <p>
+            Most engineers blame the database.
+        </p>
+
+        <p>
+            In production incidents,
+            the database is often still healthy.
+        </p>
+
+        <p>
+            What fails first is the connection pool.
+        </p>
+
+        <div id="toc" class="toc">
+            <strong>Table Of Contents</strong>
+        </div>
+
+        <h2 id="misconception">1. The Common Misconception</h2>
+
+        <p>
+            Incident happens.
+            Error message:
+        </p>
+
+        <pre><code>Timeout expired. The timeout period elapsed prior to obtaining a connection from the pool.</code></pre>
+
+        <p>
+            Immediate reaction:
+        </p>
+
+        <ul>
+            <li>“Database is overloaded.”</li>
+            <li>“Database is slow.”</li>
+        </ul>
+
+        <p>
+            But database CPU is 40%.
+            Query latency is normal.
+        </p>
+
+        <p>
+            The failure is upstream.
+        </p>
+
+        <h2 id="pool">2. What a Connection Pool Really Is</h2>
+
+        <p>
+            A connection pool is a bounded resource.
+        </p>
+
+        <p>
+            Example:
+        </p>
+
+        <pre><code>Max pool size = 100 connections</code></pre>
+
+        <p>
+            If 100 requests simultaneously need a DB connection,
+            the 101st request waits.
+        </p>
+
+        <p>
+            If wait exceeds timeout,
+            request fails.
+        </p>
+
+        <p>
+            The database can still accept more connections.
+            The application cannot.
+        </p>
+
+        <h2 id="little">3. Little's Law and Inflight Growth</h2>
+
+        <p>
+            Little's Law:
+        </p>
+
+        <pre><code>L = λ × W</code></pre>
+
+        <p>
+            Where:
+        </p>
+
+        <ul>
+            <li>L = average inflight requests</li>
+            <li>λ = request rate</li>
+            <li>W = average response time</li>
+        </ul>
+
+        <p>
+            Suppose:
+        </p>
+
+        <ul>
+            <li>Traffic = 2,000 RPS</li>
+            <li>DB latency = 50ms (0.05s)</li>
+        </ul>
+
+        <pre><code>L = 2000 × 0.05 = 100 inflight DB calls</code></pre>
+
+        <p>
+            Pool size = 100.
+            System is stable.
+        </p>
+
+        <p>
+            Now latency increases to 100ms.
+        </p>
+
+        <pre><code>L = 2000 × 0.1 = 200 inflight</code></pre>
+
+        <p>
+            Required pool size doubled.
+        </p>
+
+        <p>
+            Traffic did not change.
+        </p>
+
+        <p>
+            Latency changed.
+        </p>
+
+        <h2 id="tail">4. Tail Latency → Pool Exhaustion</h2>
+
+        <p>
+            From previous article:
+            tail latency increases non-linearly near capacity.
+        </p>
+
+        <p>
+            If P99 latency spikes to 500ms:
+        </p>
+
+        <pre><code>L = 2000 × 0.5 = 1000 inflight</code></pre>
+
+        <p>
+            With pool size 100,
+            900 requests wait.
+        </p>
+
+        <p>
+            Waiting increases latency further.
+        </p>
+
+        <p>
+            Latency → inflight growth → pool exhaustion → timeouts.
+        </p>
+
+        <p>
+            Database may still be under 60% CPU.
+        </p>
+
+        <h2 id="symptoms">5. Observable Production Symptoms</h2>
+
+        <ul>
+            <li>Connection pool timeout exceptions</li>
+            <li>Thread pool growth</li>
+            <li>Increasing GC pressure</li>
+            <li>Retry amplification</li>
+            <li>Database metrics remain stable</li>
+        </ul>
+
+        <p>
+            This is resource starvation at the application boundary.
+        </p>
+
+        <h2 id="mitigation">6. Production Mitigations</h2>
+
+        <p><strong>1. Right-size pool using Little's Law</strong></p>
+
+        <p>
+            Estimate expected inflight under peak latency.
+        </p>
+
+        <p><strong>2. Limit concurrency before DB</strong></p>
+
+        <p>
+            Use semaphore or bounded channel.
+        </p>
+
+        <pre><code>var semaphore = new SemaphoreSlim(100);
+
+await semaphore.WaitAsync();
+try
+{
+    await ExecuteDbCall();
+}
+finally
+{
+    semaphore.Release();
+}</code></pre>
+
+        <p><strong>3. Fail Fast</strong></p>
+
+        <p>
+            Reject requests instead of allowing infinite wait.
+        </p>
+
+        <p><strong>4. Monitor Inflight, Not Just CPU</strong></p>
+
+        <p>
+            CPU does not measure saturation.
+            Queue length does.
+        </p>
+
+        <h2>7. Conclusion</h2>
+
+        <p>
+            Databases fail loudly.
+            Connection pools fail silently.
+        </p>
+
+        <p>
+            Latency increases inflight.
+            Inflight exhausts pools.
+            Pools cause timeouts.
+        </p>
+
+        <p>
+            Most incidents blamed on databases
+            are actually queueing problems.
+        </p>
+
+        <div class="series-meta">
+            <div>
+                <strong>Redis Production Series</strong> (6/8)
+            </div>
+            <div>
+                <a href="./index.html">View full series →</a>
+            </div>
+        </div>
+
+        <div class="post-nav">
+            <a href="./tail-latency-kills-systems.html">
+                <span>← Previous</span>
+                <strong>Tail Latency Is What Kills Systems</strong>
+            </a>
+
+            <a href="./threadpool-is-lying.html" style="text-align: right;">
+                <span>Next →</span>
+                <strong>Your ThreadPool Is Lying To You</strong>
+            </a>
+        </div>
+
+        <footer>
+            © 2026 — Redis Production Series
+            Engineering for bounded resources.
+        </footer>
+
+    </div>
+</body>
+
+</html>

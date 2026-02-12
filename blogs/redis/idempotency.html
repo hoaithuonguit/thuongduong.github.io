@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idempotency Is a Data Problem, Not an Application Problem</title>
+    <meta name="description"
+        content="Why retries, locks, and queues still produce duplicate side effects without data-layer idempotency." />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+
+        <h1>Idempotency Is a Data Problem, Not an Application Problem</h1>
+
+        <p>
+            Retries are inevitable.
+            Duplicate delivery is inevitable.
+            Partial failure is inevitable.
+        </p>
+
+        <p>
+            If correctness depends on application memory,
+            your system will eventually produce duplicate side effects.
+        </p>
+
+        <div id="toc" class="toc">
+            <strong>Table of Contents</strong>
+        </div>
+
+        <h2 id="illusion">1. The Retry Illusion</h2>
+
+        <p>
+            Modern systems retry automatically:
+        </p>
+
+        <ul>
+            <li>HTTP clients retry on 5xx</li>
+            <li>Load balancers retry upstream</li>
+            <li>Message brokers redeliver</li>
+            <li>Users click twice</li>
+        </ul>
+
+        <p>
+            Retries are not edge cases.
+            They are normal operating conditions.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" target="_blank">
+                AWS – Timeouts, Retries and Backoff
+            </a>
+        </p>
+
+        <h2 id="real-world">2. Real-World Failure Pattern</h2>
+
+        <pre><code>Client → POST /charge
+Server → Charge credit card
+Server → Save record
+Server → Response lost
+Client → Retry POST /charge</code></pre>
+
+        <p>
+            The first charge succeeded.
+            The response was lost.
+        </p>
+
+        <p>
+            The second charge is now a duplicate.
+        </p>
+
+        <p>
+            Nothing failed.
+            The network behaved normally.
+        </p>
+
+        <h2 id="locks">3. Why Locks Don't Save You</h2>
+
+        <p>
+            A distributed lock prevents concurrent execution.
+            It does not prevent sequential duplication.
+        </p>
+
+        <pre><code>Request A processed at 10:00:00
+Request B retried at 10:00:05</code></pre>
+
+        <p>
+            The lock is already released.
+            The system executes again.
+        </p>
+
+        <p>
+            Concurrency control ≠ idempotency.
+        </p>
+
+        <h2 id="queues">4. At-Least-Once Delivery</h2>
+
+        <p>
+            Most message brokers guarantee at-least-once delivery:
+        </p>
+
+        <ul>
+            <li>Kafka</li>
+            <li>RabbitMQ</li>
+            <li>Azure Service Bus</li>
+            <li>AWS SQS</li>
+        </ul>
+
+        <p>
+            At-least-once means duplicates are expected.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://kafka.apache.org/documentation/#semantics" target="_blank">
+                Kafka Delivery Semantics
+            </a>
+        </p>
+
+        <h2 id="math">5. The Probability Math</h2>
+
+        <p>
+            Suppose:
+        </p>
+
+        <ul>
+            <li>Traffic: 3,000 RPS</li>
+            <li>Retry rate: 0.5%</li>
+            <li>Failure window: 1 hour</li>
+        </ul>
+
+        <pre><code>3,000 × 0.5% = 15 duplicate attempts per second
+15 × 3600 = 54,000 duplicate attempts per hour</code></pre>
+
+        <p>
+            Even if only 1% become real duplicate side effects:
+        </p>
+
+        <pre><code>54,000 × 1% = 540 duplicated transactions</code></pre>
+
+        <p>
+            Under scale, tiny percentages become operational incidents.
+        </p>
+
+        <h2 id="data-layer">6. Idempotency at the Data Layer</h2>
+
+        <p>
+            The only reliable solution:
+            make duplication impossible at the storage layer.
+        </p>
+
+        <pre><code>CREATE UNIQUE INDEX ux_payment_idempotency
+ON payments(idempotency_key);</code></pre>
+
+        <pre><code>INSERT INTO payments (idempotency_key, amount)
+VALUES (@key, @amount)
+ON CONFLICT (idempotency_key)
+DO NOTHING;</code></pre>
+
+        <p>
+            If the same request arrives twice,
+            the database enforces correctness.
+        </p>
+
+        <p>
+            The application becomes stateless.
+        </p>
+
+        <h2 id="patterns">7. Proven Production Patterns</h2>
+
+        <p><strong>1. Idempotency Key Pattern</strong></p>
+
+        <ul>
+            <li>Client generates UUID</li>
+            <li>Server persists key with result</li>
+            <li>Duplicate key returns previous response</li>
+        </ul>
+
+        <pre><code>SELECT response_payload
+FROM idempotency_records
+WHERE key = @key;</code></pre>
+
+        <p><strong>2. Outbox Pattern</strong></p>
+
+        <p>
+            Persist event and state change in same transaction.
+            Publish asynchronously.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://microservices.io/patterns/data/transactional-outbox.html" target="_blank">
+                Transactional Outbox Pattern
+            </a>
+        </p>
+
+        <p><strong>3. Exactly-Once Is Mostly Marketing</strong></p>
+
+        <p>
+            Exactly-once delivery requires distributed consensus.
+            Most production systems simulate it using:
+        </p>
+
+        <ul>
+            <li>Idempotency</li>
+            <li>Deduplication tables</li>
+            <li>Compensating transactions</li>
+        </ul>
+
+        <p>
+            Reference:
+            <a href="https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html" target="_blank">
+                Martin Kleppmann on Distributed Systems Guarantees
+            </a>
+        </p>
+
+        <h2>8. Conclusion</h2>
+
+        <p>
+            Locks control concurrency.
+            Retries increase duplication.
+            Queues guarantee redelivery.
+        </p>
+
+        <p>
+            Only the database can enforce uniqueness.
+        </p>
+
+        <p>
+            Idempotency is not an application concern.
+            It is a data integrity constraint.
+        </p>
+
+        <div class="series-meta">
+            <div>
+                <strong>Redis Production Series</strong> (3/8)
+            </div>
+            <div>
+                <a href="./index.html">View full series →</a>
+            </div>
+        </div>
+
+        <div class="post-nav">
+
+            <a href="./distributed-lock-not-concurrency-control.html">
+                <span>← Previous</span>
+                <strong>Distributed Locks Are Not Concurrency Control</strong>
+            </a>
+
+            <a href="./retry-create-traffic-multipliers.html" style="text-align: right;">
+                <span>Next →</span>
+                <strong>Retries Create Traffic Multipliers</strong>
+            </a>
+
+        </div>
+
+        <footer>
+            © 2026 — Redis Production Series
+            Engineering for correctness under retry.
+        </footer>
+
+    </div>
+</body>
+
+</html>

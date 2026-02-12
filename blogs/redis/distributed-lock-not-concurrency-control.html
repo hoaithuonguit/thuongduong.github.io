@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Distributed Locks Are Not Concurrency Control</title>
+    <meta name="description" content="Why your Redis distributed lock still allows duplicate execution under load." />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+
+        <h1>Distributed Locks Are Not Concurrency Control</h1>
+
+        <p>
+            A Redis lock prevents parallel execution.
+            It does not guarantee correctness.
+        </p>
+
+        <p>
+            Under load, expiry races, GC pauses, and network partitions
+            can still produce duplicate execution.
+            And duplicates are correctness failures.
+        </p>
+
+        <div id="toc" class="toc">
+            <strong>Table of Contents</strong>
+        </div>
+
+        <h2 id="assumption">1. The Assumption</h2>
+
+        <p>
+            If I hold the lock, no one else runs this code.
+        </p>
+
+        <p>
+            That assumption is false in distributed systems.
+        </p>
+
+        <p>
+            A lock is a coordination primitive.
+            Correctness is a data guarantee.
+        </p>
+
+        <h2 id="naive">2. The Naive Implementation</h2>
+
+        <pre><code>var acquired = await redis.StringSetAsync(
+    "lock:order:123",
+    nodeId,
+    TimeSpan.FromSeconds(10),
+    When.NotExists
+);
+
+if (!acquired)
+    return;
+
+await ProcessOrder();
+
+await redis.KeyDeleteAsync("lock:order:123");</code></pre>
+
+        <p>
+            Looks safe.
+        </p>
+
+        <p>
+            It is not.
+        </p>
+
+        <h2 id="expiry">3. Expiry Race Condition</h2>
+
+        <p>
+            Timeline:
+        </p>
+
+        <pre><code>T0   Node A acquires lock (TTL = 10s)
+T8   Node A still processing
+T10  Lock expires
+T10.1 Node B acquires lock
+T11  Node A completes
+
+→ Double execution</code></pre>
+
+        <p>
+            The system behaved exactly as configured.
+            No component failed.
+        </p>
+
+        <p>
+            The failure is logical, not technical.
+        </p>
+
+        <h2 id="gc">4. GC Pause & Thread Suspension (.NET)</h2>
+
+        <p>
+            In .NET, stop-the-world garbage collection can pause threads.
+        </p>
+
+        <p>
+            During a Gen2 GC:
+        </p>
+
+        <ul>
+            <li>All managed threads suspend</li>
+            <li>Lock TTL continues counting</li>
+            <li>Node assumes it still owns lock</li>
+        </ul>
+
+        <p>
+            If GC pause = 400ms–800ms under pressure,
+            expiry windows shrink dramatically.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://learn.microsoft.com/en-us/dotnet/standard/garbage-collection/fundamentals" target="_blank">
+                .NET GC Fundamentals
+            </a>
+        </p>
+
+        <h2 id="network">5. Network Partitions</h2>
+
+        <p>
+            Consider temporary network partition:
+        </p>
+
+        <pre><code>Node A acquires lock
+Network isolates Node A from Redis
+TTL expires
+Node B acquires lock
+Node A continues processing (still alive)</code></pre>
+
+        <p>
+            Both nodes believe they are correct.
+        </p>
+
+        <p>
+            This is split-brain behavior.
+        </p>
+
+        <p>
+            Distributed systems cannot assume perfect connectivity.
+        </p>
+
+        <h2 id="math">6. The Probability Problem</h2>
+
+        <p>
+            Suppose:
+        </p>
+
+        <ul>
+            <li>Processing time P95 = 8 seconds</li>
+            <li>TTL = 10 seconds</li>
+            <li>Traffic = 5,000 RPS</li>
+        </ul>
+
+        <p>
+            If even 2% of executions exceed TTL due to variance:
+        </p>
+
+        <pre><code>5,000 × 2% = 100 potential duplicate windows per second</code></pre>
+
+        <p>
+            Over one hour:
+        </p>
+
+        <pre><code>100 × 3600 = 360,000 potential duplicate events</code></pre>
+
+        <p>
+            Even if only 0.1% materialize:
+        </p>
+
+        <pre><code>360,000 × 0.1% = 360 real duplicates per hour</code></pre>
+
+        <p>
+            Locks reduce concurrency.
+            They do not eliminate race probability.
+        </p>
+
+        <h2 id="redlock">7. The RedLock Debate</h2>
+
+        <p>
+            Redis RedLock attempts to solve this using quorum across multiple nodes.
+        </p>
+
+        <p>
+            However, it remains controversial.
+        </p>
+
+        <p>
+            Martin Kleppmann critique:
+            <a href="https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html" target="_blank">
+                How to do distributed locking
+            </a>
+        </p>
+
+        <p>
+            Redis author response:
+            <a href="https://redis.io/docs/interact/programmability/distlock/" target="_blank">
+                Redis Distributed Locks
+            </a>
+        </p>
+
+        <p>
+            The debate centers around:
+        </p>
+
+        <ul>
+            <li>Clock drift</li>
+            <li>Network partitions</li>
+            <li>Safety vs liveness trade-offs</li>
+        </ul>
+
+        <p>
+            Even RedLock cannot give absolute correctness under asynchronous networks.
+        </p>
+
+        <h2 id="solution">8. The Real Solution</h2>
+
+        <p>
+            The real solution is idempotency at the data layer.
+        </p>
+
+        <pre><code>INSERT INTO payments (idempotency_key, amount, ...)
+VALUES (@key, @amount, ...)
+ON CONFLICT (idempotency_key)
+DO NOTHING;</code></pre>
+
+        <p>
+            Or enforce uniqueness constraint:
+        </p>
+
+        <pre><code>CREATE UNIQUE INDEX ux_payment_idempotency
+ON payments(idempotency_key);</code></pre>
+
+        <p>
+            Locking prevents parallelism.
+            Idempotency prevents duplication.
+        </p>
+
+        <p>
+            They solve different problems.
+        </p>
+
+        <p>
+            Concurrency control belongs to the database.
+            Not to Redis.
+        </p>
+
+
+        <div class="series-meta">
+            <div>
+                <strong>Redis Production Series</strong> (2/8)
+            </div>
+            <div>
+                <a href="./index.html">View full series →</a>
+            </div>
+        </div>
+
+        <div class="post-nav">
+
+            <a href="./redis-ttl-synchronization.html">
+                <span>← Previous</span>
+                <strong>Cache Is Not Load Reduction</strong>
+            </a>
+
+            <a href="./idempotency.html" style="text-align: right;">
+                <span>Next →</span>
+                <strong>Idempotency Is a Data Problem, Not an Application Problem</strong>
+            </a>
+
+        </div>
+
+
+        <footer>
+            © 2026 — Redis Production Series
+            Engineering for correctness, not assumptions.
+        </footer>
+
+    </div>
+</body>
+
+</html>

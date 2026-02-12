@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tail Latency Is What Kills Systems</title>
+    <meta name="description"
+        content="Why P99 latency dominates system behavior and why average metrics hide production failures." />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <h1>Tail Latency Is What Kills Systems</h1>
+
+        <p>
+            Average latency is comforting.
+            Tail latency is reality.
+        </p>
+
+        <p>
+            Most production outages are not caused by average load.
+            They are caused by variance.
+        </p>
+
+        <div id="toc" class="toc">
+            <strong>Table of Contents</strong>
+        </div>
+
+        <h2 id="average">1. The Average Illusion</h2>
+
+        <p>
+            Suppose your dashboard shows:
+        </p>
+
+        <ul>
+            <li>Average latency: 120ms</li>
+            <li>P95 latency: 180ms</li>
+            <li>P99 latency: 1.8s</li>
+        </ul>
+
+        <p>
+            The average looks healthy.
+        </p>
+
+        <p>
+            But 1% of requests are 15× slower.
+        </p>
+
+        <p>
+            At 10,000 RPS:
+        </p>
+
+        <pre><code>10,000 × 1% = 100 slow requests per second</code></pre>
+
+        <p>
+            That is not a rounding error.
+            That is 100 unhappy users every second.
+        </p>
+
+        <h2 id="percentiles">2. Understanding Percentiles</h2>
+
+        <p>
+            Percentiles measure distribution, not central tendency.
+        </p>
+
+        <p>
+            P99 means:
+        </p>
+
+        <pre><code>99% of requests are faster than this number
+1% are slower</code></pre>
+
+        <p>
+            In distributed systems,
+            slow requests propagate upstream.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://research.google/pubs/pub40801/" target="_blank">
+                The Tail at Scale – Dean & Barroso (Google)
+            </a>
+        </p>
+
+        <h2 id="fanout">3. Fan-Out Amplification</h2>
+
+        <p>
+            Modern services rarely call one dependency.
+            They call many.
+        </p>
+
+        <p>
+            Example:
+        </p>
+
+        <pre><code>User Request
+   ├── Service A
+   ├── Service B
+   ├── Service C
+   ├── Service D
+   └── Service E</code></pre>
+
+        <p>
+            If each service has 1% probability of slow response:
+        </p>
+
+        <pre><code>Probability(all fast) = 0.99^5 ≈ 0.951
+Probability(at least one slow) ≈ 4.9%</code></pre>
+
+        <p>
+            With 10 dependencies:
+        </p>
+
+        <pre><code>0.99^10 ≈ 0.904
+≈ 9.6% chance of slow overall response</code></pre>
+
+        <p>
+            Fan-out multiplies tail probability.
+        </p>
+
+        <h2 id="queue">4. Queueing Theory & Non-Linearity</h2>
+
+        <p>
+            In an M/M/1 queue:
+        </p>
+
+        <pre><code>W = 1 / (μ - λ)</code></pre>
+
+        <p>
+            As λ approaches μ,
+            response time increases non-linearly.
+        </p>
+
+        <p>
+            Example:
+        </p>
+
+        <pre><code>Capacity (μ) = 10,000 RPS
+Traffic (λ) = 9,000 RPS
+
+W ∝ 1 / (1000)</code></pre>
+
+        <p>
+            Increase load by 5%:
+        </p>
+
+        <pre><code>λ = 9,500
+W ∝ 1 / (500)</code></pre>
+
+        <p>
+            Latency doubles from a small load increase.
+        </p>
+
+        <p>
+            Tail latency is where this curve becomes vertical.
+        </p>
+
+        <h2 id="real-world">5. Real-World Collapse Pattern</h2>
+
+        <p>
+            Common production pattern:
+        </p>
+
+        <ol>
+            <li>Load increases slightly</li>
+            <li>P99 latency increases</li>
+            <li>Timeouts increase</li>
+            <li>Retries increase load</li>
+            <li>Thread pools saturate</li>
+            <li>Connection pools exhaust</li>
+            <li>System collapses</li>
+        </ol>
+
+        <p>
+            The trigger was variance.
+            Not average load.
+        </p>
+
+        <p>
+            Reference:
+            <a href="https://sre.google/sre-book/handling-overload/" target="_blank">
+                Google SRE – Handling Overload
+            </a>
+        </p>
+
+        <h2 id="mitigation">6. Production Mitigations</h2>
+
+        <p><strong>1. Hedge Requests</strong></p>
+
+        <p>
+            Send duplicate request if latency exceeds threshold.
+            Use first response.
+        </p>
+
+        <p>
+            Reduces tail impact but increases load.
+            Must be rate-limited.
+        </p>
+
+        <p><strong>2. Reduce Fan-Out</strong></p>
+
+        <p>
+            Minimize synchronous dependency calls.
+        </p>
+
+        <p><strong>3. Adaptive Concurrency Limits</strong></p>
+
+        <p>
+            Dynamically limit inflight requests.
+        </p>
+
+        <p><strong>4. Observe P99, Not Just Average</strong></p>
+
+        <p>
+            Alert on percentile, not mean.
+        </p>
+
+        <h2>7. Conclusion</h2>
+
+        <p>
+            Systems fail at the tail.
+        </p>
+
+        <p>
+            Averages hide risk.
+            Percentiles expose it.
+        </p>
+
+        <p>
+            Under scale,
+            variance dominates.
+        </p>
+
+        <p>
+            Engineering for average load
+            guarantees failure at peak.
+        </p>
+
+        <div class="series-meta">
+            <div>
+                <strong>Redis Production Series</strong> (5/8)
+            </div>
+            <div>
+                <a href="./index.html">View full series →</a>
+            </div>
+        </div>
+
+        <div class="post-nav">
+            <a href="./retry-create-traffic-multipliers.html">
+                <span>← Previous</span>
+                <strong>Retries Create Traffic Multipliers</strong>
+            </a>
+
+            <a href="./connection-pools-fail-first.html" style="text-align: right;">
+                <span>Next →</span>
+                <strong>Connection Pools Fail Before Databases Do</strong>
+            </a>
+        </div>
+
+        <footer>
+            © 2026 — Redis Production Series
+            Engineering for variance, not averages.
+        </footer>
+
+    </div>
+</body>
+
+</html>

@@ -147,3 +147,31 @@ footer {
     margin-bottom: 1rem;
     border-radius: 10px;
 }
+
+.timeline-item h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.3rem;
+}
+
+.timeline-item span {
+    display: block;
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 0.8rem;
+}
+
+.timeline-item ul {
+    padding-left: 1.2rem;
+}
+
+.timeline-item li {
+    margin-bottom: 0.4rem;
+    font-size: 0.95rem;
+}
+
+.page h1 {
+    margin-top: 3rem;
+    font-size: 1.6rem;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+}

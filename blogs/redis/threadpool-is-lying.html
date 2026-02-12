@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your ThreadPool Is Lying To You</title>
+    <meta name="description"
+        content="Why ThreadPool auto-scaling hides saturation and makes latency worse instead of fixing overload." />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <h1>Your ThreadPool Is Lying To You</h1>
+
+        <p>
+            CPU is 55%.
+        </p>
+
+        <p>
+            Memory looks fine.
+        </p>
+
+        <p>
+            But latency is climbing.
+        </p>
+
+        <p>
+            Thread count is increasing.
+        </p>
+
+        <p>
+            Everything “looks” like the system is adapting.
+        </p>
+
+        <p>
+            It is not.
+        </p>
+
+        <div id="toc" class="toc">
+            <strong>Table of Contents</strong>
+        </div>
+
+        <h2 id="illusion">1. The Illusion of Auto-Scaling</h2>
+
+        <p>
+            Modern runtimes auto-scale worker threads.
+        </p>
+
+        <p>
+            When tasks block,
+            new threads are injected.
+        </p>
+
+        <p>
+            This feels like elasticity.
+        </p>
+
+        <p>
+            It is actually delay compensation.
+        </p>
+
+        <p>
+            ThreadPool scaling does not remove bottlenecks.
+            It masks them.
+        </p>
+
+        <h2 id="hill">2. How ThreadPool Scaling Actually Works</h2>
+
+        <p>
+            In .NET, the ThreadPool uses a hill-climbing algorithm.
+        </p>
+
+        <p>
+            It increases worker threads gradually
+            based on throughput measurement.
+        </p>
+
+        <p>
+            It samples:
+        </p>
+
+        <ul>
+            <li>Completed work per unit time</li>
+            <li>Queue length</li>
+            <li>CPU utilization</li>
+        </ul>
+
+        <p>
+            It does not instantly add 200 threads.
+        </p>
+
+        <p>
+            It probes.
+        </p>
+
+        <p>
+            Under sudden load,
+            scaling lags behind demand.
+        </p>
+
+        <h2 id="queue">3. Queueing Theory Still Applies</h2>
+
+        <p>
+            ThreadPool does not break Little’s Law.
+        </p>
+
+        <pre><code>L = λ × W</code></pre>
+
+        <p>
+            If arrival rate increases
+            or work duration increases,
+            inflight grows.
+        </p>
+
+        <p>
+            Adding threads reduces wait time
+            only if CPU is the bottleneck.
+        </p>
+
+        <p>
+            If threads are blocking on:
+        </p>
+
+        <ul>
+            <li>Database</li>
+            <li>Redis</li>
+            <li>HTTP calls</li>
+            <li>Disk I/O</li>
+        </ul>
+
+        <p>
+            Adding threads increases contention.
+        </p>
+
+        <h2 id="spiral">4. The Latency Spiral</h2>
+
+        <p>
+            Scenario:
+        </p>
+
+        <ul>
+            <li>2000 RPS</li>
+            <li>DB latency rises from 50ms → 200ms</li>
+        </ul>
+
+        <p>
+            More requests block on DB.
+        </p>
+
+        <p>
+            ThreadPool injects new threads.
+        </p>
+
+        <p>
+            New threads:
+        </p>
+
+        <ul>
+            <li>Allocate stacks</li>
+            <li>Increase context switching</li>
+            <li>Increase memory pressure</li>
+        </ul>
+
+        <p>
+            Latency increases further.
+        </p>
+
+        <p>
+            ThreadPool reacts again.
+        </p>
+
+        <p>
+            This is a positive feedback loop.
+        </p>
+
+        <p>
+            Eventually:
+        </p>
+
+        <ul>
+            <li>Connection pools exhaust</li>
+            <li>GC pauses increase</li>
+            <li>Timeouts spike</li>
+        </ul>
+
+        <p>
+            CPU still below 70%.
+        </p>
+
+        <h2 id="gc">5. Hidden Costs: GC & Context Switching</h2>
+
+        <p><strong>Stack Memory</strong></p>
+
+        <p>
+            Each thread consumes stack memory.
+        </p>
+
+        <p>
+            More threads → more memory fragmentation.
+        </p>
+
+        <p><strong>Context Switching</strong></p>
+
+        <p>
+            OS scheduler overhead grows
+            non-linearly with thread count.
+        </p>
+
+        <p><strong>Garbage Collection</strong></p>
+
+        <p>
+            More inflight tasks → more allocations.
+        </p>
+
+        <p>
+            More allocations → higher GC frequency.
+        </p>
+
+        <p>
+            Higher GC → increased pause time.
+        </p>
+
+        <p>
+            Increased pause → higher latency.
+        </p>
+
+        <p>
+            Feedback loop.
+        </p>
+
+        <h2 id="mitigation">6. Production Mitigations</h2>
+
+        <p><strong>1. Measure Queue Length</strong></p>
+
+        <p>
+            Monitor:
+        </p>
+
+        <ul>
+            <li>ThreadPool queue size</li>
+            <li>Active worker threads</li>
+            <li>Completed items/sec</li>
+        </ul>
+
+        <p><strong>2. Limit Concurrency Explicitly</strong></p>
+
+        <p>
+            Use bounded concurrency at boundaries.
+        </p>
+
+        <p>
+            Do not rely on implicit ThreadPool behavior.
+        </p>
+
+        <p><strong>3. Prefer Async I/O</strong></p>
+
+        <p>
+            Avoid blocking threads on network calls.
+        </p>
+
+        <p><strong>4. Apply Backpressure</strong></p>
+
+        <p>
+            Reject requests when saturation approaches.
+        </p>
+
+        <h2>7. Conclusion</h2>
+
+        <p>
+            ThreadPool scaling is reactive.
+        </p>
+
+        <p>
+            It hides saturation temporarily.
+        </p>
+
+        <p>
+            It cannot fix external bottlenecks.
+        </p>
+
+        <p>
+            If your system only survives because ThreadPool keeps adding threads,
+            you are already overloaded.
+        </p>
+
+        <div class="series-meta">
+            <div>
+                <strong>Redis Production Series</strong> (7/8)
+            </div>
+            <div>
+                <a href="./index.html">View full series →</a>
+            </div>
+        </div>
+
+        <div class="post-nav">
+            <a href="./connection-pools-fail-first.html">
+                <span>← Previous</span>
+                <strong>Connection Pools Fail Before Databases Do</strong>
+            </a>
+
+            <a href="./exactly-once-is-marketing.html" style="text-align: right;">
+                <span>Next →</span>
+                <strong>Exactly-Once Delivery Is Mostly Marketing</strong>
+            </a>
+        </div>
+
+        <footer>
+            © 2026 — Redis Production Series
+            Bounded concurrency is survival.
+        </footer>
+
+    </div>
+</body>
+
+</html>

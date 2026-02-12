@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Redis Production Series Written for engineers who measure
+        variance.</title>
+    <meta name="description" content="Engineering deep dive into Redis in .NET systems.">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+
+        <h1>Redis Production Series</h1>
+        <h2 style="margin-top:0; font-weight:400;">
+            Where Distributed Systems Actually Break
+        </h2>
+
+        <p>
+            This is not a Redis tutorial.
+        </p>
+
+        <p>
+            This is a production systems series.
+        </p>
+
+        <p>
+            It’s about why systems fail even when CPU is low,
+            database looks healthy,
+            and dashboards appear green.
+        </p>
+
+        <p>
+            Every article builds on queueing theory,
+            bounded resources,
+            and real-world failure patterns.
+        </p>
+
+        <hr />
+
+        <h2>System Mental Model</h2>
+
+        <pre><code>Client
+   │
+   ▼
+Load Balancer
+   │
+   ▼
+App Server
+   │
+   ├── ThreadPool
+   │
+   ├── Connection Pool ──► Database
+   │
+   ├── Redis
+   │
+   └── External Services
+</code></pre>
+
+        <p>
+            Failures do not start at the database.
+        </p>
+
+        <p>
+            They start at:
+        </p>
+
+        <ul>
+            <li>Latency amplification</li>
+            <li>Retry storms</li>
+            <li>Queue growth</li>
+            <li>Resource exhaustion</li>
+        </ul>
+
+        <p>
+            And they propagate upward.
+        </p>
+
+        <hr />
+
+        <h2>The Collapse Chain</h2>
+
+        <p>
+            Production failures typically follow this pattern:
+        </p>
+
+        <pre><code>Small latency increase
+        ↓
+Inflight growth (Little’s Law)
+        ↓
+Connection pool exhaustion
+        ↓
+ThreadPool expansion
+        ↓
+GC & context switching pressure
+        ↓
+Retry amplification
+        ↓
+Full system degradation
+</code></pre>
+
+        <p>
+            Each article in this series isolates one step.
+        </p>
+
+        <hr />
+
+        <h2>Article Map</h2>
+
+        <h3>1. Performance Is a Queueing Problem</h3>
+        <p>
+            Why CPU utilization does not measure system health.
+            Introduces Little’s Law and bounded resources.
+        </p>
+        <p>
+            <a href="./redis-ttl-synchronization.html">Read Article →</a>
+        </p>
+
+        <h3>2. Distributed Locks Are Not Safety</h3>
+        <p>
+            Why Redis locks fail under partitions and why mutual exclusion
+            is not correctness.
+        </p>
+        <p>
+            <a href="./distributed-lock-not-concurrency-control.html">Read Article →</a>
+        </p>
+
+        <h3>3. Idempotency Is Your Real Guarantee</h3>
+        <p>
+            How production systems achieve correctness through replay-safe operations.
+        </p>
+        <p>
+            <a href="./idempotency.html">Read Article →</a>
+        </p>
+
+        <h3>4. Retries Amplify Failure</h3>
+        <p>
+            Why retries without backoff create exponential load amplification.
+        </p>
+        <p>
+            <a href="./retry-create-traffic-multipliers.html">Read Article →</a>
+        </p>
+
+        <h3>5. Tail Latency Is What Kills Systems</h3>
+        <p>
+            Why P99 determines system collapse, not average latency.
+        </p>
+        <p>
+            <a href="./tail-latency-kills-systems.html">Read Article →</a>
+        </p>
+
+        <h3>6. Connection Pools Fail Before Databases Do</h3>
+        <p>
+            Why pool exhaustion causes timeouts even when DB CPU is low.
+        </p>
+        <p>
+            <a href="./connection-pools-fail-first.html">Read Article →</a>
+        </p>
+
+        <h3>7. Your ThreadPool Is Lying To You</h3>
+        <p>
+            How auto-scaling threads hide saturation and increase instability.
+        </p>
+        <p>
+            <a href="./threadpool-is-lying.html">Read Article →</a>
+        </p>
+
+        <h3>8. Exactly-Once Delivery Is Mostly Marketing</h3>
+        <p>
+            Why distributed correctness comes from idempotency,
+            not magical guarantees.
+        </p>
+        <p>
+            <a href="./exactly-once-is-marketing.html">Read Article →</a>
+        </p>
+
+        <hr />
+
+        <h2>Who This Series Is For</h2>
+
+        <ul>
+            <li>Senior backend engineers</li>
+            <li>Staff / Principal engineers</li>
+            <li>Architects designing high-throughput systems</li>
+            <li>Engineers debugging production latency incidents</li>
+        </ul>
+
+        <p>
+            If you are optimizing for 5% performance gain,
+            this is not for you.
+        </p>
+
+        <p>
+            If you are responsible for systems that cannot fail,
+            this is.
+        </p>
+
+        <hr />
+
+        <h2>Core Thesis</h2>
+
+        <p>
+            Production systems fail at resource boundaries.
+        </p>
+
+        <p>
+            Not at feature boundaries.
+        </p>
+
+        <p>
+            Bounded concurrency.
+            Backpressure.
+            Idempotent design.
+            Queue awareness.
+        </p>
+
+        <p>
+            These are survival skills.
+        </p>
+
+        <footer>
+            © 2026 — Redis Production Series
+            Engineering is managing queues under uncertainty.
+        </footer>
+
+    </div>
+</body>

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Exactly-Once Delivery Is Mostly Marketing</title>
+    <meta name="description"
+        content="Why exactly-once delivery is rarely achievable in distributed systems and why idempotency is the real solution." />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+
+        <h1>Exactly-Once Delivery Is Mostly Marketing</h1>
+
+        <p>
+            Distributed systems promise many things.
+        </p>
+
+        <p>
+            High availability.
+            Horizontal scale.
+            Event-driven architecture.
+        </p>
+
+        <p>
+            And sometimes:
+        </p>
+
+        <p>
+            Exactly-once delivery.
+        </p>
+
+        <p>
+            That promise is usually misunderstood.
+        </p>
+
+        <div id="toc" class="toc">
+            <strong>Table Of Contents</strong>
+        </div>
+
+        <h2 id="definition">1. What Exactly-Once Actually Means</h2>
+
+        <p>
+            “Exactly-once” can refer to multiple things:
+        </p>
+
+        <ul>
+            <li>Message delivered exactly once</li>
+            <li>Message processed exactly once</li>
+            <li>Side effects applied exactly once</li>
+        </ul>
+
+        <p>
+            These are not equivalent.
+        </p>
+
+        <p>
+            Delivery guarantees do not equal effect guarantees.
+        </p>
+
+        <h2 id="impossible">2. Why It’s Almost Impossible</h2>
+
+        <p>
+            In distributed systems,
+            failures are indistinguishable from delays.
+        </p>
+
+        <p>
+            If a consumer processes a message
+            and crashes before acknowledging,
+            what happened?
+        </p>
+
+        <ul>
+            <li>Did it process?</li>
+            <li>Did it commit side effects?</li>
+            <li>Did it persist state?</li>
+        </ul>
+
+        <p>
+            The broker cannot know.
+        </p>
+
+        <p>
+            Therefore it must retry.
+        </p>
+
+        <p>
+            Retry implies potential duplicate delivery.
+        </p>
+
+        <p>
+            This is fundamental.
+            Not implementation-specific.
+        </p>
+
+        <h2 id="layers">3. The Layer Confusion Problem</h2>
+
+        <p>
+            Many systems advertise exactly-once at a specific layer.
+        </p>
+
+        <p>
+            For example:
+        </p>
+
+        <ul>
+            <li>Kafka: exactly-once semantics (EOS)</li>
+            <li>Database: transactional writes</li>
+            <li>Message broker: idempotent producer</li>
+        </ul>
+
+        <p>
+            But these guarantees are scoped.
+        </p>
+
+        <p>
+            Kafka EOS ensures:
+        </p>
+
+        <ul>
+            <li>No duplicate writes to Kafka logs</li>
+            <li>Atomic commit of consumed + produced messages</li>
+        </ul>
+
+        <p>
+            It does not guarantee:
+        </p>
+
+        <ul>
+            <li>Your database side effects are idempotent</li>
+            <li>Your external API calls are deduplicated</li>
+            <li>Your Redis writes are unique</li>
+        </ul>
+
+        <h2 id="redis">4. Redis, Kafka and the Fine Print</h2>
+
+        <p>
+            Consider this flow:
+        </p>
+
+        <pre><code>1. Consume event
+2. Update database
+3. Write to Redis
+4. Commit offset</code></pre>
+
+        <p>
+            If crash happens after step 3
+            but before step 4:
+        </p>
+
+        <ul>
+            <li>Offset not committed</li>
+            <li>Event will be replayed</li>
+            <li>Database update may execute again</li>
+            <li>Redis write may execute again</li>
+        </ul>
+
+        <p>
+            Even with Kafka EOS,
+            your external side effects remain vulnerable.
+        </p>
+
+        <p>
+            Exactly-once inside Kafka.
+            At-least-once outside.
+        </p>
+
+        <h2 id="reality">5. The Real Strategy: Idempotency</h2>
+
+        <p>
+            Production systems do not rely on exactly-once.
+        </p>
+
+        <p>
+            They rely on idempotency.
+        </p>
+
+        <p>
+            Idempotency means:
+        </p>
+
+        <p>
+            Repeating the same operation
+            does not change the outcome.
+        </p>
+
+        <p>
+            Example:
+        </p>
+
+        <pre><code>INSERT INTO payments (id, amount)
+VALUES (:event_id, :amount)
+ON CONFLICT (id) DO NOTHING;</code></pre>
+
+        <p>
+            Duplicate event?
+            No duplicate payment.
+        </p>
+
+        <p>
+            This is correctness through design.
+        </p>
+
+        <h2 id="design">6. Designing for Correctness</h2>
+
+        <p><strong>1. Use Idempotency Keys</strong></p>
+
+        <p>
+            Every external request should carry
+            a unique identifier.
+        </p>
+
+        <p><strong>2. Make Side Effects Idempotent</strong></p>
+
+        <ul>
+            <li>UPSERT instead of INSERT</li>
+            <li>SET instead of INCREMENT when possible</li>
+            <li>Compare-and-set operations</li>
+        </ul>
+
+        <p><strong>3. Separate Processing from Effects</strong></p>
+
+        <p>
+            Store event processing result first.
+            Apply side effects after durable state.
+        </p>
+
+        <p><strong>4. Accept At-Least-Once Reality</strong></p>
+
+        <p>
+            Distributed systems naturally converge to:
+        </p>
+
+        <p>
+            At-least-once delivery + idempotent processing.
+        </p>
+
+        <h2>7. Conclusion</h2>
+
+        <p>
+            Exactly-once delivery is a scoped optimization.
+        </p>
+
+        <p>
+            It is not a universal guarantee.
+        </p>
+
+        <p>
+            Real systems achieve correctness through:
+        </p>
+
+        <ul>
+            <li>Bounded resources</li>
+            <li>Backpressure</li>
+            <li>Idempotent side effects</li>
+            <li>Clear failure semantics</li>
+        </ul>
+
+        <p>
+            This series was never about Redis.
+        </p>
+
+        <p>
+            It was about understanding where systems actually break.
+        </p>
+
+        <div class="series-meta">
+            <div>
+                <strong>Redis Production Series</strong> (8/8)
+            </div>
+            <div>
+                <a href="./index.html">View full series →</a>
+            </div>
+        </div>
+
+        <div class="post-nav">
+            <a href="./threadpool-is-lying.html">
+                <span>← Previous</span>
+                <strong>Your ThreadPool Is Lying To You</strong>
+            </a>
+        </div>
+
+        <footer>
+            © 2026 — Redis Production Series
+            Design for duplication. Assume retries. Embrace idempotency.
+        </footer>
+
+    </div>
+</body>
+
+</html>
