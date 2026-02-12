@@ -13,7 +13,7 @@
         <div class="container">
             <div class="logo">Duong Hoai Thuong</div>
             <nav>
-                <a href="/index.html">Home</a>
+                <a href="./index.html">Home</a>
                 <a href="./resume.html" class="active">Resume</a>
                 <a href="./blogs/blog.html">Blog</a>
             </nav>
@@ -22,41 +22,114 @@
 
 
     <section class="container page">
+
+        <h1>Professional Summary</h1>
+
+        <div class="card">
+            <p>
+                Backend-focused engineer with 6+ years of experience building
+                distributed systems and scalable APIs using .NET and Azure.
+            </p>
+            <p>
+                Strong focus on performance, concurrency control, caching strategies,
+                and production reliability.
+            </p>
+            <p>
+                Interested in system design, queueing theory, and real-world failure patterns.
+            </p>
+        </div>
+
+
         <h1>Professional Experience</h1>
 
-
         <div class="timeline">
-            <div class="timeline-item">
+
+            <div class="timeline-item card">
                 <h2>ASWHITE – Backend Developer</h2>
                 <span>09/2024 – Present</span>
-                <p>Building call management API system with .NET, EF Core, Redis, Azure.</p>
+
+                <ul>
+                    <li>Designed and implemented call management API using .NET & EF Core</li>
+                    <li>Integrated Redis caching to reduce response latency</li>
+                    <li>Optimized SQL queries and improved throughput under load</li>
+                    <li>Deployed services to Azure with monitoring & logging setup</li>
+                </ul>
             </div>
 
 
-            <div class="timeline-item">
-                <h2>Restaff – Full‑stack Developer</h2>
+            <div class="timeline-item card">
+                <h2>Restaff – Full-stack Developer</h2>
                 <span>06/2022 – 09/2024</span>
-                <p>Developed lifecycle management system and engineering editor tool.</p>
+
+                <ul>
+                    <li>Developed lifecycle management system with .NET & React</li>
+                    <li>Built internal engineering editor tool for structured workflows</li>
+                    <li>Improved CI/CD pipeline reliability and deployment speed</li>
+                    <li>Reduced production incidents through better error handling & logging</li>
+                </ul>
             </div>
 
 
-            <div class="timeline-item">
-                <h2>MTI – Full‑stack Developer</h2>
+            <div class="timeline-item card">
+                <h2>MTI – Full-stack Developer</h2>
                 <span>04/2019 – 06/2022</span>
-                <p>System architecture design, CI/CD setup, Azure migration.</p>
+
+                <ul>
+                    <li>Participated in system architecture design for enterprise projects</li>
+                    <li>Set up CI/CD pipelines and automated deployments</li>
+                    <li>Led Azure migration and infrastructure optimization</li>
+                    <li>Worked on performance tuning and query optimization</li>
+                </ul>
             </div>
+
         </div>
 
 
         <h1>Technical Skills</h1>
-        <ul class="skills">
-            <li>.NET Core / ASP.NET</li>
-            <li>EF Core & SQL Optimization</li>
-            <li>Redis Caching</li>
-            <li>Azure Services</li>
-            <li>React & TypeScript</li>
-            <li>CI/CD & DevOps</li>
-        </ul>
+
+        <div class="grid">
+
+            <div class="card">
+                <h3>Backend</h3>
+                <ul>
+                    <li>.NET Core / ASP.NET</li>
+                    <li>EF Core</li>
+                    <li>SQL Optimization</li>
+                    <li>REST API Design</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>Data & Caching</h3>
+                <ul>
+                    <li>Redis</li>
+                    <li>Query Performance Tuning</li>
+                    <li>Concurrency Handling</li>
+                    <li>Transaction Design</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>Cloud & DevOps</h3>
+                <ul>
+                    <li>Azure App Services</li>
+                    <li>Azure SQL</li>
+                    <li>CI/CD Pipelines</li>
+                    <li>Monitoring & Logging</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>Frontend</h3>
+                <ul>
+                    <li>React</li>
+                    <li>TypeScript</li>
+                    <li>Component-based UI</li>
+                </ul>
+            </div>
+
+        </div>
+
     </section>
 
 
