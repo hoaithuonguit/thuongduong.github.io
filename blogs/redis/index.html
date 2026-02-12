@@ -96,19 +96,19 @@ App Server
             Production failures typically follow this pattern:
         </p>
 
-        <pre><code>Small latency increase
+        <pre><code>Cache illusion
         ↓
-Inflight growth (Little’s Law)
+Lock illusion
+        ↓
+Retry amplification
+        ↓
+Tail latency amplification
         ↓
 Connection pool exhaustion
         ↓
 ThreadPool expansion
         ↓
-GC & context switching pressure
-        ↓
-Retry amplification
-        ↓
-Full system degradation
+Exactly-once myth exposed
 </code></pre>
 
         <p>
@@ -119,10 +119,10 @@ Full system degradation
 
         <h2>Article Map</h2>
 
-        <h3>1. Performance Is a Queueing Problem</h3>
+        <h3>1. Cache Is Not Load Reduction</h3>
         <p>
-            Why CPU utilization does not measure system health.
-            Introduces Little’s Law and bounded resources.
+            Why caching does not eliminate load, it only shifts it.
+            Explains hit ratio illusion, tail latency, and amplification effects.
         </p>
         <p>
             <a href="./redis-ttl-synchronization.html">Read Article →</a>
