@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>When a Read Query Blocked a Write-Heavy System — Lessons on Isolation Levels</title>
+    <meta name="description"
+        content="A real production incident where a full-table read blocked writes in a 20k+ inserts/day system. Deep dive into READ UNCOMMITTED, Snapshot Isolation, indexing trade-offs, and architectural decisions." />
+    <link rel="stylesheet" href="styles.css" />
+    <meta property="og:title" content="When a Read Query Blocked a Write-Heavy System — Lessons on Isolation Levels" />
+    <meta property="og:description"
+        content="A real production incident where a full-table read blocked writes in a 20k+ inserts/day system. Deep dive into READ UNCOMMITTED, Snapshot Isolation, indexing trade-offs, and architectural decisions." />
+    <meta property="og:type" content="article" />
+    <script defer src="script.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PT2851LYJ0"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-PT2851LYJ0');
+    </script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="../../index.html">Home</a>
+                <a href="../../resume.html">Resume</a>
+                <a href="../blog.html">Blog</a>
+                <a href="mailto:hoaithuongit0511@outlook.com">Contact</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+        <h1>Production Lesson #03 — When a Read Query Blocked an Entire Write-Heavy System</h1>
+
+        <p><i>Sometimes, the system isn’t slow. It’s waiting.</i></p>
+
+        <div class="toc" id="toc">
+            <strong>Table of Contents</strong>
+        </div>
+        <h2>Context</h2>
+
+        <p>
+            Our system is write-heavy.
+            On average, more than <b>20,000 new records</b> are inserted into the main table every single day.
+        </p>
+
+        <p>
+            The read side supports <b>dynamic filtering</b>.
+            Users can filter by multiple fields — status, category, owner, flags, and more.
+            Different combinations are possible.
+        </p>
+
+        <p>
+            That flexibility came with a trade-off:
+        </p>
+
+        <ul>
+            <li>No single dominant query pattern</li>
+            <li>No predictable access path</li>
+            <li>Indexing strategy becomes extremely hard to optimize</li>
+        </ul>
+
+        <p>
+            Composite indexes couldn’t realistically cover every filter combination.
+            And adding too many indexes would significantly hurt write performance.
+        </p>
+
+        <p>
+            In a write-heavy system, every additional index is a tax on inserts.
+        </p>
+
+        <h2>The Business Request</h2>
+
+        <p>
+            One day, business requested a new feature:
+        </p>
+
+        <blockquote>
+            “List all data — without any date range filter.”
+        </blockquote>
+
+        <p>
+            This meant:
+        </p>
+
+        <ul>
+            <li>No selective predicate</li>
+            <li>No efficient index seek</li>
+            <li>Full table scan</li>
+        </ul>
+
+        <p>
+            In development, it worked fine.
+            In production, it didn’t.
+        </p>
+
+        <h2>What Happened in Production</h2>
+
+        <p>
+            Once deployed:
+        </p>
+
+        <ul>
+            <li>The query scanned the entire main table.</li>
+            <li>SQL Server acquired long-lived shared locks.</li>
+            <li>Write operations required exclusive locks.</li>
+            <li>They couldn’t acquire them.</li>
+        </ul>
+
+        <p>
+            Write requests started queuing.
+            Some were blocked for more than <b>15 seconds</b>.
+            Monitoring alerts flooded in.
+        </p>
+
+        <p>
+            The application was healthy.
+            The database was not.
+        </p>
+
+        <h2>Why AsNoTracking Didn’t Help</h2>
+
+        <p>
+            On the read side, we already used <b>AsNoTracking()</b>.
+        </p>
+
+        <p>
+            That reduces EF Core change tracking overhead.
+            But it does <b>NOT</b> change database isolation behavior.
+        </p>
+
+        <p>
+            Under default <b>READ COMMITTED</b> isolation:
+        </p>
+
+        <ul>
+            <li>Reads acquire shared locks.</li>
+            <li>Writes require exclusive locks.</li>
+            <li>Shared and exclusive locks conflict.</li>
+        </ul>
+
+        <p>
+            A long-running full-table read holds shared locks long enough
+            to starve write operations.
+        </p>
+
+        <p>
+            In a write-heavy system, that’s catastrophic.
+        </p>
+
+        <h2>The Indexing Constraint</h2>
+
+        <p>
+            Could we just add more indexes?
+        </p>
+
+        <p>
+            Not realistically.
+        </p>
+
+        <p>
+            Because:
+        </p>
+
+        <ul>
+            <li>Dynamic filters create many query shapes.</li>
+            <li>No stable leading column for composite indexing.</li>
+            <li>Multiple indexes increase insert/update cost.</li>
+            <li>This system’s critical path is writing.</li>
+        </ul>
+
+        <p>
+            In write-heavy systems, indexing strategy is not just about query speed —
+            it’s about protecting write throughput.
+        </p>
+
+        <h2>The Tactical Fix: READ UNCOMMITTED</h2>
+
+        <p>
+            Given:
+        </p>
+
+        <ul>
+            <li>The feature was operational listing/reporting.</li>
+            <li>Absolute real-time accuracy was not critical.</li>
+            <li>System availability was business-critical.</li>
+        </ul>
+
+        <p>
+            We applied <b>READ UNCOMMITTED</b> to this specific query.
+        </p>
+
+        <p>
+            Effect:
+        </p>
+
+        <ul>
+            <li>No shared locks.</li>
+            <li>No blocking writes.</li>
+            <li>Possible dirty reads.</li>
+        </ul>
+
+        <p>
+            The blocking stopped immediately.
+            Write latency returned to normal.
+            Alerts disappeared.
+        </p>
+
+        <p>
+            Consistency was slightly relaxed.
+            System stability was restored.
+        </p>
+
+        <h2>Why Snapshot Isolation Might Be the Strategic Fix</h2>
+
+        <p>
+            READ UNCOMMITTED solved the immediate problem.
+            But it allows dirty reads.
+        </p>
+
+        <p>
+            A more robust alternative is <b>Snapshot Isolation</b>.
+        </p>
+
+        <p>
+            Instead of locking reads,
+            it uses <b>row versioning</b>.
+        </p>
+
+        <ul>
+            <li>Readers access a consistent snapshot.</li>
+            <li>Writers continue normally.</li>
+            <li>No read-write blocking.</li>
+        </ul>
+
+        <p>
+            However, nothing is free.
+        </p>
+
+        <p>
+            Snapshot Isolation introduces:
+        </p>
+
+        <ul>
+            <li>TempDB pressure due to version storage</li>
+            <li>Additional I/O overhead</li>
+            <li>Potential update conflicts at commit time</li>
+        </ul>
+
+        <p>
+            In write-heavy environments,
+            row versioning cost must be carefully monitored.
+        </p>
+
+        <p>
+            READ UNCOMMITTED is a tactical fix.
+            Snapshot Isolation is a strategic design choice.
+        </p>
+
+        <blockquote>
+            Concurrency control is never about right or wrong.
+            It is about choosing which cost you are willing to pay.
+        </blockquote>
+
+        <h2>Why Not Just Use a Search Engine?</h2>
+
+        <p>
+            A common question:
+        </p>
+
+        <blockquote>
+            “If full-table reads are dangerous, why not move this to a search engine?”
+        </blockquote>
+
+        <p>
+            That’s a valid architectural option.
+            But context matters.
+        </p>
+
+        <h3>1. Data Freshness</h3>
+
+        <p>
+            Introducing a search engine means:
+        </p>
+
+        <ul>
+            <li>Event publishing</li>
+            <li>Index synchronization</li>
+            <li>Eventual consistency</li>
+        </ul>
+
+        <p>
+            You trade lock contention for replication delay.
+        </p>
+
+        <h3>2. Operational Overhead</h3>
+
+        <p>
+            A search engine is an operational system:
+        </p>
+
+        <ul>
+            <li>Cluster management</li>
+            <li>Shard balancing</li>
+            <li>Reindexing strategy</li>
+            <li>Monitoring and failure handling</li>
+        </ul>
+
+        <p>
+            For one listing feature,
+            that may be architectural escalation.
+        </p>
+
+        <h3>3. Write Amplification</h3>
+
+        <p>
+            In a write-heavy system (20k+ inserts/day),
+            every write would now:
+        </p>
+
+        <ul>
+            <li>Persist to database</li>
+            <li>Publish event</li>
+            <li>Index into search engine</li>
+        </ul>
+
+        <p>
+            That increases system complexity and write amplification.
+        </p>
+
+        <h3>4. Dynamic Filtering Still Exists</h3>
+
+        <p>
+            Even in a search engine,
+            dynamic filters still create many query shapes.
+        </p>
+
+        <p>
+            You move the scalability challenge —
+            you don’t eliminate it.
+        </p>
+
+        <blockquote>
+            Architectural escalation should follow bottleneck patterns —
+            not feature pressure.
+        </blockquote>
+
+        <h2>The Real Lesson</h2>
+
+        <p>
+            In write-heavy systems:
+        </p>
+
+        <ul>
+            <li>A read query can become a write killer.</li>
+            <li>Indexing is a write-throughput decision.</li>
+            <li>Isolation level is a business trade-off.</li>
+        </ul>
+
+        <blockquote>
+            In high-write systems, isolation level is not a database setting.
+            It’s a business decision.
+        </blockquote>
+
+        <p>
+            And sometimes,
+            the most dangerous query
+            is the one that “just reads everything.”
+        </p>
+        <footer>
+            © 2026 — Production lessons Series
+            Engineering for bounded resources.
+        </footer>
+    </div>
+    </div>
+</body>
+
+</html>
