@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <url>
+    <loc>https://thuongduong.com/</loc>
+    <priority>1.0</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/resume.html</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/blog.html</loc>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Redis Series -->
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/redis-ttl-synchronization.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/distributed-lock-not-concurrency-control.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/threadpool-is-lying.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/idempotency.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/retry-create-traffic-multipliers.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/tail-latency-kills-systems.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/connection-pools-fail-first.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/redis/exactly-once-is-marketing.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Production Lessons -->
+  <url>
+    <loc>https://thuongduong.com/blogs/production-lesson-learn/</loc>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://thuongduong.com/blogs/production-lesson-learn/redis-is-fast-util-you-design-wrong.html</loc>
+    <priority>0.8</priority>
+  </url>
+
+</urlset>
