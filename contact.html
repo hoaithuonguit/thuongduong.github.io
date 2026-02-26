@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact | Duong Hoai Thuong</title>
+    <link rel="stylesheet" href="./css/style.css" />
+    <meta name="robots" content="index, follow">
+    <!-- Google tag (same as index) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PT2851LYJ0"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-PT2851LYJ0');
+    </script>
+</head>
+
+<body>
+    <header class="nav">
+        <div class="container">
+            <div class="logo">Duong Hoai Thuong</div>
+            <nav>
+                <a href="./index.html">Home</a>
+                <a href="./resume.html">Resume</a>
+                <a href="./blogs/blog.html">Blog</a>
+                <a href="./contact.html" class="active">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <section class="page container">
+        <h1>Let's Work Together</h1>
+        <p style="margin-bottom:2rem; color:#475569;">
+            Have a backend architecture challenge or performance issue?
+            Send me a message below.
+        </p>
+
+        <div class="card contact-card">
+            <form id="contact-form" action="https://formspree.io/f/xpqjbpgy" method="POST">
+                <input type="hidden" name="_subject" value="New Contact from thuongduong.com">
+                <!-- Redirect after success -->
+                <input type="hidden" name="_redirect" value="https://thuongduong.com/success.html">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Your Name</label>
+                        <input type="text" name="name" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Your Email</label>
+                        <input type="email" name="email" required />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Your Message</label>
+                    <textarea name="message" rows="5" required></textarea>
+                </div>
+
+                <button type="submit" class="btn primary full-btn">
+                    Send Message
+                </button>
+            </form>
+        </div>
+
+        <!-- Calendly Section -->
+        <div style="margin-top:4rem;">
+            <h2 style="margin-bottom:1rem;">Or Book a Free 30-min Call</h2>
+            <p style="margin-bottom:1.5rem; color:#475569;">
+                Prefer talking directly? Schedule a quick call.
+            </p>
+
+            <iframe src="https://calendly.com/hoaithuong-uit/30min" width="100%" height="600" style="border:0;">
+            </iframe>
+        </div>
+
+    </section>
+
+    <footer>
+        © 2026 Duong Hoai Thuong. Built with focus and long-term vision.
+    </footer>
+
+    <!-- GA Conversion Tracking -->
+    <script>
+        document.getElementById("contact-form").addEventListener("submit", function () {
+            gtag('event', 'contact_form_submit', {
+                event_category: 'engagement',
+                event_label: 'contact_page'
+            });
+        });
+    </script>
+
+</body>
+
+</html>
