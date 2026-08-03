@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why "Redis Is Slow" Is the Wrong Question | Duong Hoai Thuong</title>
+  <meta name="description"
+    content="A slow Redis dashboard tells you something is wrong. It never tells you what, why, or when it started. Here's how to ask better questions when Redis degrades in production.">
+  <link rel="canonical" href="https://thuongduong.com/blogs/redis-is-slow-wrong-question.html">
+  <link rel="stylesheet" href="redis-is-slow-wrong-question.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PT2851LYJ0"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-PT2851LYJ0');
+  </script>
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <span class="site-name">Duong Hoai Thuong</span>
+      <nav>
+        <a href="https://thuongduong.com/">Home</a>
+        <a href="https://thuongduong.com/resume.html">Resume</a>
+        <a href="https://thuongduong.com/blogs/blog.html">Blog</a>
+        <a href="https://thuongduong.com/contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <article class="post">
+
+      <div class="wrap">
+        <p class="eyebrow">Redis in production</p>
+        <h1>Why "Redis Is Slow" Is the Wrong Question</h1>
+        <p class="deck">A dashboard can tell you that something is wrong. It can't tell you what broke, why it broke, or
+          when the trouble actually started. Those three gaps are where production incidents live.</p>
+        <p class="meta">Duong Hoai Thuong &nbsp;·&nbsp; 9 min read</p>
+      </div>
+
+      <!-- SIGNATURE ELEMENT: diagnostic readout panel -->
+      <div class="wrap">
+        <div class="readout" role="img"
+          aria-label="Diagnostic readout showing three questions: what is the issue, how to fix it, when it happened">
+          <div class="readout-row">
+            <span class="readout-tag">01</span>
+            <span class="readout-label">WHAT</span>
+            <span class="readout-value">is actually failing</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-tag">02</span>
+            <span class="readout-label">FIX</span>
+            <span class="readout-value">the specific change that resolves it</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-tag">03</span>
+            <span class="readout-label">WHEN</span>
+            <span class="readout-value">it started, down to the command</span>
+          </div>
+          <div class="readout-caption">Three questions a monitoring graph was never built to answer.</div>
+        </div>
+      </div>
+
+      <div class="wrap prose">
+
+        <p>Somewhere between 2 and 3 a.m., latency on the checkout service starts creeping up. By the time someone is
+          paged, p99 has tripled. The Redis dashboard is open in one tab &mdash; CPU is fine, memory is under 60%,
+          connected clients look normal. Every graph is green. And yet the thing the graphs were supposed to explain is
+          still happening.</p>
+
+        <p>This is the moment where "Redis is slow" stops being useful as a sentence. It's a symptom, not a diagnosis.
+          The engineer staring at that dashboard doesn't need another metric to confirm that something is off &mdash;
+          they already know that. What they need is an answer to three much narrower questions: <em>what specifically is
+            failing, how do I fix that specific thing, and when did it start.</em></p>
+
+        <h2>Monitoring answers a different question than the one you're asking</h2>
+
+        <p>Most Redis setups lean on Prometheus and Grafana, or a general-purpose APM tool bolted onto Redis as an
+          afterthought. These tools are good at one job: showing you that a metric crossed a line. Memory climbed. Ops
+          per second dropped. Connected clients spiked. That's monitoring, and it's necessary &mdash; but it stops
+          exactly where the real work begins.</p>
+
+        <p>Observability is supposed to pick up from there, and it does, in theory. In practice, most Redis
+          observability is still just monitoring with more dashboards. More panels, more colors, more thresholds to tune
+          &mdash; but still no path from "the graph moved" to "here is the command, the client, and the timestamp
+          responsible for it."</p>
+
+        <h2>Two incidents that look identical on a graph</h2>
+
+        <p>Consider two on-call scenarios that produce the exact same symptom &mdash; a latency spike on a Redis-backed
+          endpoint &mdash; but require completely different fixes.</p>
+
+        <p><strong>Scenario A.</strong> A developer ships a new admin feature that calls <code>KEYS user:*</code> to
+          build a debug report. On a keyspace with a few hundred thousand keys, that single command blocks the Redis
+          event loop long enough to stall every other client waiting behind it. CPU barely moves. Memory doesn't budge.
+          The only trace is a single entry in <code>SLOWLOG</code> with an execution time that shouldn't exist in a
+          properly indexed access pattern.</p>
+
+        <p><strong>Scenario B.</strong> Traffic grows past what <code>maxmemory</code> allows, and Redis starts evicting
+          keys under an LRU policy to stay under budget. The eviction itself is fast, but the application wasn't built
+          to tolerate a jump in cache misses, so every one of those evictions turns into an extra round trip to
+          Postgres. The dashboard shows the same shape of latency spike as Scenario A &mdash; but the fix is memory
+          sizing and eviction policy, not a code review of a debug endpoint.</p>
+
+        <p>A metrics dashboard renders both of these identically: a line going up. Nothing about "used_memory: 58%" or
+          "ops/sec: normal" tells you which of the two you're looking at. The only artifact that distinguishes them is
+          the raw command trail &mdash; slowlog for the first, an eviction counter delta for the second &mdash;
+          correlated against the exact window where latency broke.</p>
+
+        <h2>Slowlog is the primitive most teams under-use</h2>
+
+        <p>Redis's own <code>SLOWLOG</code> command is quietly one of the most useful debugging tools available, and
+          it's almost never front-and-center in a monitoring setup. Every entry carries a timestamp, an execution time
+          in microseconds, the offending command and its arguments, and the client that issued it. That's not a metric
+          &mdash; it's a receipt.</p>
+
+        <p>The reason slowlog gets ignored isn't that it's hard to query. It's that most tooling treats it as a side
+          table you check manually after a graph already told you to be suspicious, rather than as the first-class
+          signal it should be. Flip that order &mdash; start from the command trail, not the aggregate metric &mdash;
+          and "Redis is slow" stops being a mystery and starts being a lookup.</p>
+
+        <h2>What "when" actually means</h2>
+
+        <p>The third question is the one teams answer worst. "When did this start" usually gets approximated as
+          "whenever the graph crossed the alert threshold," which is almost always later than the real onset. A gradual
+          memory leak, a slow accumulation of blocked clients, a replication lag that's been quietly widening for twenty
+          minutes &mdash; these don't announce themselves at a clean timestamp. They cross a threshold well after the
+          underlying cause began.</p>
+
+        <p>Getting "when" right means correlating the metric anomaly with the exact command or event that triggered the
+          shift &mdash; not the moment an alert fired, but the moment in the slowlog or the eviction counter where the
+          trajectory actually changed. That's a timeline problem, not a threshold problem, and most alerting systems
+          aren't built to answer it.</p>
+
+        <h2>Redis-first, not Redis-as-a-checkbox</h2>
+
+        <p>None of this is a criticism of Prometheus, Grafana, or the general-purpose APM tools that dominate this space
+          &mdash; they're built to cover every system a company runs, and Redis is one line item among many. That
+          breadth is exactly why Redis rarely gets more than a plugin's worth of attention: a handful of generic charts,
+          no real grasp of what a slowlog entry means, no distinction between a keyspace-scan problem and an eviction
+          problem.</p>
+
+        <p>That gap is what I'm building <strong>Diagnostack</strong> to close &mdash; a Redis-first diagnostic tool
+          with one job: when Redis is slow, tell you what broke, how to fix it, and when it started, without fifteen
+          minutes of manual slowlog archaeology first. It's in active build-in-public development right now, starting
+          with the failure patterns above &mdash; full keyspace scans, eviction storms, blocking RDB snapshots &mdash;
+          as the first diagnostic rules.</p>
+
+        <p>If your team has debugged a Redis incident recently and it took longer than it should have to find the actual
+          cause, I'd genuinely like to hear what that investigation looked like.</p>
+
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">© 2026 Duong Hoai Thuong. Built with focus and long-term vision.</div>
+  </footer>
+
+</body>
+
+</html>

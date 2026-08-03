@@ -1,0 +1,227 @@
+/* ============================================================
+   Tokens
+   ============================================================ */
+:root {
+  --bg:        #0F1E30;   /* deep navy */
+  --surface:   #16293F;   /* panel bg */
+  --surface-2: #1C324A;   /* readout row bg */
+  --line:      #2A3F58;   /* borders / dividers */
+  --text:      #E8EDF3;   /* primary text */
+  --text-dim:  #93A4B8;   /* secondary text */
+  --accent:    #FF7A45;   /* coral / amber */
+  --accent-dim:#B85A34;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ============================================================
+   Header
+   ============================================================ */
+.site-header {
+  border-bottom: 1px solid var(--line);
+  padding: 20px 0;
+}
+.site-header .wrap {
+  max-width: 860px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.site-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+.site-header nav a {
+  color: var(--text-dim);
+  margin-left: 20px;
+  font-size: 0.9rem;
+}
+.site-header nav a:first-child { margin-left: 0; }
+.site-header nav a:hover { color: var(--text); text-decoration: none; }
+
+/* ============================================================
+   Article header
+   ============================================================ */
+.post { padding-bottom: 96px; }
+
+.post .wrap:first-of-type { padding-top: 64px; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 18px;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.5vw, 2.85rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 20px;
+}
+
+.deck {
+  font-size: 1.15rem;
+  color: var(--text-dim);
+  max-width: 58ch;
+  margin: 0 0 28px;
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  margin: 0 0 48px;
+}
+
+/* ============================================================
+   Signature element — diagnostic readout panel
+   ============================================================ */
+.readout {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  margin-bottom: 56px;
+}
+
+.readout-row {
+  display: grid;
+  grid-template-columns: 40px 90px 1fr;
+  align-items: center;
+  gap: 18px;
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 16px 18px;
+  margin-bottom: 6px;
+}
+.readout-row:last-of-type { margin-bottom: 0; }
+
+.readout-tag {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.readout-label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.readout-value {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.readout-caption {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  padding: 14px 12px 8px;
+}
+
+@media (max-width: 480px) {
+  .readout-row {
+    grid-template-columns: 30px 70px 1fr;
+    gap: 10px;
+    padding: 14px 12px;
+  }
+}
+
+/* ============================================================
+   Prose
+   ============================================================ */
+.prose h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.4rem;
+  letter-spacing: -0.005em;
+  margin: 52px 0 18px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 28px;
+}
+
+.prose p {
+  font-size: 1.04rem;
+  color: #D3DBE4;
+  margin: 0 0 22px;
+}
+
+.prose strong { color: var(--text); font-weight: 600; }
+
+.prose em { color: var(--text); font-style: italic; }
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.site-footer {
+  border-top: 1px solid var(--line);
+  padding: 28px 0;
+}
+.site-footer .wrap {
+  max-width: 860px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* ============================================================
+   Motion / accessibility
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
